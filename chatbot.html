@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Nor.AI — Chatbot</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      background: #f4f4f5;
+    }
+    header {
+      height: 60px;
+      background: #fff;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      justify-content: space-between;
+    }
+    .header-image { height: 100px; }
+    .history-btn {
+      background: #ffffff;
+      border: none;
+      color: rgb(0, 0, 0);
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .chat-container {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .message {
+      max-width: 80%;
+      padding: 12px 16px;
+      border-radius: 18px;
+      font-size: 1rem;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      animation: fadeIn 0.3s ease;
+    }
+    .user-message {
+      background-color: #4a90e2;
+      color: white;
+      align-self: flex-end;
+      border-top-right-radius: 0;
+    }
+    .bot-message {
+      background-color: #e0e0e0;
+      color: #111;
+      align-self: flex-start;
+      border-top-left-radius: 0;
+    }
+    .input-area {
+      display: flex;
+      padding: 12px 20px;
+      background: white;
+      border-top: 1px solid #ddd;
+      position: sticky;
+      bottom: 0;
+      z-index: 10;
+      gap: 8px;
+    }
+    #mensaje {
+      flex: 1;
+      padding: 12px 16px;
+      border-radius: 999px;
+      border: 1px solid #ccc;
+      font-size: 1rem;
+      outline: none;
+    }
+    #sendBtn, #audioBtn {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: none;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+    }
+    #sendBtn {
+      background: #4a90e2;
+    }
+    #sendBtn:hover { background: #357abd; }
+    #sendBtn svg, #audioBtn svg {
+      fill: white;
+      width: 22px;
+      height: 22px;
+    }
+    #audioBtn {
+      background: #4a90e2;
+    }
+    #audioBtn.listening {
+      background: #357abd; /* cambia color cuando escucha */
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .modal {
+      position: fixed;
+      top: 60px;
+      right: 20px;
+      background: white;
+      border: 1px solid #ccc;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      padding: 15px;
+      border-radius: 8px;
+      z-index: 999;
+      width: 300px;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+    .modal h3 { margin-bottom: 10px; font-size: 1.1rem; }
+    .conversation-item {
+      padding: 8px;
+      background: #f0f0f0;
+      margin-bottom: 6px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .conversation-item:hover { background: #e0e0e0; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <img src="Img/1.png" alt="Logo" class="header-image" />
+    <button class="history-btn" onclick="toggleHistorial()">☰</button>
+  </header>
+
+  <div class="chat-container" id="respuesta"></div>
+
+  <div class="input-area">
+    <input type="text" id="mensaje" placeholder="pregunta a Nor.AI" />
+    <button id="audioBtn" aria-label="Hablar">
+      <!-- Icono micrófono -->
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 14 0h-2zM11 18h2v3h-2v-3z"/>
+      </svg>
+    </button>
+    <button id="sendBtn" aria-label="Enviar">
+      <!-- Flecha hacia arriba SVG -->
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path d="M12 2L5 9h4v9h6V9h4l-7-7z"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="modal" id="historialModal" style="display:none">
+    <h3>Historial de conversaciones</h3>
+    <div id="listaHistorial"></div>
+  </div>
+
+  <script>
+    const mensajeInput = document.getElementById("mensaje");
+    const sendBtn = document.getElementById("sendBtn");
+    const audioBtn = document.getElementById("audioBtn");
+    const respuestaDiv = document.getElementById("respuesta");
+
+    let historialActual = [];
+    let historialGuardado = JSON.parse(localStorage.getItem("conversacionesNorAI") || "[]");
+
+    function guardarConversacion() {
+      if (historialActual.length > 0) {
+        historialGuardado.push([...historialActual]);
+        localStorage.setItem("conversacionesNorAI", JSON.stringify(historialGuardado));
+      }
+    }
+
+    function toggleHistorial() {
+      const modal = document.getElementById("historialModal");
+      modal.style.display = modal.style.display === "none" ? "block" : "none";
+      mostrarHistorial();
+    }
+
+    function mostrarHistorial() {
+      const lista = document.getElementById("listaHistorial");
+      lista.innerHTML = "";
+      historialGuardado.forEach((conv, index) => {
+        const item = document.createElement("div");
+        item.className = "conversation-item";
+        item.textContent = conv[0]?.texto?.slice(0, 40) + "...";
+        item.onclick = () => {
+          historialActual = [...conv];
+          renderConversacion();
+          toggleHistorial();
+        };
+        lista.appendChild(item);
+      });
+    }
+
+    function renderConversacion() {
+      respuestaDiv.innerHTML = "";
+      historialActual.forEach(msg => {
+        const div = document.createElement("div");
+        div.className = `message ${msg.tipo === 'user' ? 'user-message' : 'bot-message'}`;
+        div.textContent = msg.texto;
+        respuestaDiv.appendChild(div);
+      });
+      respuestaDiv.scrollTop = respuestaDiv.scrollHeight;
+    }
+
+    function enviar() {
+      const texto = mensajeInput.value.trim();
+      if (!texto) return;
+
+      historialActual.push({ tipo: 'user', texto });
+      renderConversacion();
+      mensajeInput.value = "";
+
+      historialActual.push({ tipo: 'bot', texto: "..." });
+      renderConversacion();
+
+      fetch("https://hook.us2.make.com/cmwlw5c47hoaac2w1qeaev7wrivnojnh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mensaje: texto,
+          contexto: historialActual.map(e => e.texto).join("\n")
+        })
+      })
+      .then(res => res.text())
+      .then(respuesta => {
+        historialActual.pop();
+        historialActual.push({ tipo: 'bot', texto: respuesta.trim() });
+        renderConversacion();
+      })
+      .catch(err => {
+        historialActual.pop();
+        historialActual.push({ tipo: 'bot', texto: "❌ Error al responder." });
+        renderConversacion();
+        console.error(err);
+      });
+    }
+
+    sendBtn.addEventListener("click", enviar);
+    mensajeInput.addEventListener("keydown", e => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        enviar();
+      }
+    });
+
+    // 🎤 Reconocimiento de voz
+    let recognition;
+    if ("webkitSpeechRecognition" in window) {
+      recognition = new webkitSpeechRecognition();
+      recognition.lang = "es-ES";
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      recognition.onstart = () => {
+        audioBtn.classList.add("listening");
+      };
+      recognition.onend = () => {
+        audioBtn.classList.remove("listening");
+      };
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        mensajeInput.value = transcript;
+      };
+
+      audioBtn.addEventListener("click", () => {
+        recognition.start();
+      });
+    } else {
+      audioBtn.style.display = "none"; // oculta si no es compatible
+      console.warn("Reconocimiento de voz no soportado en este navegador.");
+    }
+
+    window.addEventListener("beforeunload", guardarConversacion);
+    window.onload = renderConversacion;
+  </script>
+</body>
+</html>

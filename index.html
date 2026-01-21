@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nor.AI</title>
+    <link rel="stylesheet" href="Css/style.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet" />
+    <link rel="icon" href="Img/4.png" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Segoe UI', sans-serif; }
+
+    #chatbot-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: #4a90e2;
+      border: none;
+      color: white;
+      font-size: 30px;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      z-index: 999;
+    }
+
+    #chatbot-window {
+      position: fixed;
+      bottom: 90px;
+      right: 20px;
+      width: 360px;
+      max-height: 600px;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      z-index: 998;
+    }
+
+    header {
+      background: #fff;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+
+    .chat-container {
+      flex: 1;
+      padding: 12px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .message {
+      max-width: 80%;
+      padding: 10px 14px;
+      border-radius: 16px;
+      font-size: 0.95rem;
+      line-height: 1.3;
+      white-space: pre-wrap;
+    }
+
+    .user-message {
+      background: #4a90e2;
+      color: white;
+      align-self: flex-end;
+      border-top-right-radius: 0;
+    }
+
+    .bot-message {
+      background: #eee;
+      color: #111;
+      align-self: flex-start;
+      border-top-left-radius: 0;
+    }
+
+    .input-area {
+      display: flex;
+      padding: 10px;
+      background: white;
+      border-top: 1px solid #ddd;
+    }
+
+    #mensaje {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid #ccc;
+      font-size: 0.95rem;
+      outline: none;
+    }
+
+    #sendBtn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #4a90e2;
+      border: none;
+      margin-left: 8px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+    }
+
+    #sendBtn svg {
+      fill: white;
+      width: 18px;
+      height: 18px;
+    }
+  </style>
+</head>
+<body>
+  <button id="chatbot-btn">💬</button>
+
+  <div id="chatbot-window">
+    <header>
+      <strong>Nor.AI</strong>
+      <button onclick="toggleChat()">❌</button>
+    </header>
+
+    <div class="chat-container" id="respuesta"></div>
+
+    <div class="input-area">
+      <input type="text" id="mensaje" placeholder="Escribe algo...">
+      <button id="sendBtn">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+          <path d="M12 2L5 9h4v9h6V9h4l-7-7z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const chatbotBtn = document.getElementById("chatbot-btn");
+    const chatbotWindow = document.getElementById("chatbot-window");
+    const mensajeInput = document.getElementById("mensaje");
+    const respuestaDiv = document.getElementById("respuesta");
+    const sendBtn = document.getElementById("sendBtn");
+
+    let historialActual = [];
+
+    function toggleChat() {
+      chatbotWindow.style.display = chatbotWindow.style.display === "none" ? "flex" : "none";
+    }
+
+    chatbotBtn.addEventListener("click", toggleChat);
+
+    function renderConversacion() {
+      respuestaDiv.innerHTML = "";
+      historialActual.forEach(msg => {
+        const div = document.createElement("div");
+        div.className = `message ${msg.tipo === 'user' ? 'user-message' : 'bot-message'}`;
+        div.textContent = msg.texto;
+        respuestaDiv.appendChild(div);
+      });
+      respuestaDiv.scrollTop = respuestaDiv.scrollHeight;
+    }
+
+    function enviar() {
+      const texto = mensajeInput.value.trim();
+      if (!texto) return;
+
+      historialActual.push({ tipo: 'user', texto });
+      renderConversacion();
+      mensajeInput.value = "";
+
+      historialActual.push({ tipo: 'bot', texto: "..." });
+      renderConversacion();
+
+      fetch("https://hook.us2.make.com/cmwlw5c47hoaac2w1qeaev7wrivnojnh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mensaje: texto,
+          contexto: historialActual.map(e => e.texto).join("\n")
+        })
+      })
+      .then(res => res.text())
+      .then(respuesta => {
+        historialActual.pop();
+        historialActual.push({ tipo: 'bot', texto: respuesta.trim() });
+        renderConversacion();
+      })
+      .catch(err => {
+        historialActual.pop();
+        historialActual.push({ tipo: 'bot', texto: "❌ Error al responder." });
+        renderConversacion();
+        console.error(err);
+      });
+    }
+
+    sendBtn.addEventListener("click", enviar);
+    mensajeInput.addEventListener("keydown", e => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        enviar();
+      }
+    });
+  </script>
+  <nav class="navbar" id="navbar">
+    <a href="index.html"><div class="logo"><img src="Img/2.png" alt="Logo" style="height: 99px; vertical-align: middle;" /></a></div>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="#acerca">Acerca de Nosotros</a></li>
+      <li><a href="#proyectos">Proyectos</a></li>
+      <li><a href="planes.html">Planes y Precios</a></li>
+    </ul> 
+    <div class="menu-toggle" id="menu-toggle">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+  </nav>
+  <section class="hero">
+    <div class="hero-left">
+      <h3 class="Text1">Automatización inteligente desde tu web</h3>
+
+      <h1 class="Text2">Conecta, automatiza y olvídate.</h1>
+
+      <h4 class="Text3">Automatiza formularios, correos, chats y más… sin complicaciones.</h4>
+
+      <div
+        aria-label="User Login Button"
+        tabindex="0"
+        role="button"
+        class="user-profile"
+      >
+        <div class="user-profile-inner">
+          <p onclick="window.open('Cotizacion.html')">Empieza</p>
+        </div>
+      </div>
+    </div>
+    <div class="hero-right">
+      <canvas id="barChart" aria-label="Bar chart" role="img"></canvas>
+    </div>
+  </section>
+
+  <section id="acerca" class="acerca-section">
+    <div class="container">
+      <h2 class="section-title">Acerca de Nosotros</h2>
+      <p class="section-description">
+       Nor.AI es tu asistente inteligente diseñado para ayudarte a crear, automatizar y resolver tareas de forma rápida y sencilla. 
+Con tecnología avanzada y una interfaz moderna, Nor.AI entiende lo que buscas y te ofrece respuestas claras, ideas creativas y soluciones efectivas en segundos. 
+
+Ya seas emprendedor, estudiante o alguien que quiere hacer más con menos esfuerzo, Nor.AI está hecho para ti. 
+Fácil de usar, disponible 24/7 y pensado para mejorar tu experiencia digital.
+      </p>
+      <div style="display: flex; align-items: center; gap: 20px;">
+        <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-left: -60px;">
+          <div style="display: flex; align-items: center; gap: 4px; margin-left: -20px; justify-content: flex-start; padding-left: 0;">
+            <img src="Img/rocket.svg" alt="Rocket Icon" style="background-color: white; padding: 2px; border-radius: 50%; width: 32px; height: 32px;" />
+            <span>Automatización inteligente</span>
+          </div>
+          <span style="text-align: justify; font-style: italic; font-size: 0.9rem; color: #afadad; max-width: 220px; margin-top: 4px; margin-left: 0; display: block;">
+            Nor.AI permite automatizar procesos como el envío de mensajes, registros, cotizaciones y más, sin necesidad de sistemas complicados. Esto ayuda a que tu negocio funcione de forma más ágil, moderna y sin perder tiempo en tareas repetitivas.
+          </span><br><br><br>
+          <div style="display: flex; align-items: center; gap: 4px; justify-content: flex-start; padding-left: 0; margin-left: -20px;">
+            <img src="Img/client.svg" alt="Client Icon" style="background-color: white; padding: 2px; border-radius: 50%; width: 32px; height: 32px;" />
+            <span>Mejor atención al cliente</span>
+          </div>
+          <span style="text-align: justify; font-style: italic; font-size: 0.9rem; color: #afadad; max-width: 220px; margin-top: 4px; margin-left: 0; display: block;">
+            Nor.AI puede responder consultas de forma automática, brindar asistencia a cualquier hora y ofrecer respuestas personalizadas. Esto mejora la experiencia del cliente, crea confianza y muestra una imagen profesional desde el primer contacto.
+          </span>
+        </div>
+        <img src="Img/5.svg" alt="Imagen 5"/ >
+        <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 4px; justify-content: flex-start; padding-left: 0; margin-left: -20px;">
+          <div style="display: flex; align-items: center; gap: 4px;justify-content: flex-start; padding-left: 0; margin-left: -20px;">
+            <img src="Img/time.svg" alt="time Icon" style="background-color: white; padding: 2px; border-radius: 50%; width: 32px; height: 32px;" />
+            <span>Ahorro de tiempo</span>
+          </div>
+          <span style="text-align: justify; font-style: italic; font-size: 0.9rem; color: #afadad; max-width: 220px; margin-top: 4px; margin-left: 0; display: block;">
+            Al encargarse de tareas rutinarias, Nor.AI te ayuda a ahorrar horas valiosas cada semana. Ya no tendrás que estar pendiente de todo manualmente, lo que te da más espacio para enfocarte en hacer crecer tu negocio o atender mejor a tus clientes.
+          </span><br><br><br>
+          <div style="display: flex; align-items: center; gap: 4px; justify-content: flex-start; padding-left: 0; margin-left: -20px;">
+            <img src="Img/balance.svg" alt="Balance Icon" style="background-color: white; padding: 1px; border-radius: 50%; width: 32px; height: 32px;" />
+            <span>Compatibilidad</span>
+          </div>
+          <span style="text-align: justify; font-style: italic; font-size: 0.9rem; color: #afadad; max-width: 220px; margin-top: 4px; margin-left: 0; display: block;">
+            Funciona con plataformas como WhatsApp, Google Sheets, CRMs y más. Así puedes conectar todo lo que ya usas en tu empresa, sin necesidad de cambiar tu forma de trabajar ni instalar programas complicados.
+          </span>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <section id="proyectos" class="proyectos-section">
+    <div class="container proyectos-container">
+      <h2 class="section-title" style="text-align: center; ">Proyectos</h2>
+      <p class="section-description" style="text-align: justify; max-width: 800px; margin: 0 auto 20px auto;">
+        En Nor.AI desarrollamos soluciones inteligentes hechas a la medida, combinando diseño moderno, automatización y soporte confiable. Todo lo que creamos es posible gracias a nuestro equipo: Nilo, que diseña experiencias visuales atractivas; Onix, que se encarga de que nuestros sistemas conversacionales funcionen con precisión; y Rami, que brinda soporte técnico y mantiene todo en orden. Ya hemos creado chatbots personalizados, páginas web responsive y herramientas automatizadas usando nuestras propias plataformas. Si buscas innovación con un toque humano, estás en el lugar correcto.
+      </p>
+      <div class="img11-container" style="text-align: center; margin-bottom: 20px;">
+        <img src="Img/11.svg" alt="Imagen 11" id="img11" style="cursor: pointer; width: 250px; height: auto;" />
+      </div>
+      <div class="proyectos-hover-container">
+        <div class="proyecto-hover-item" data-title="Nilo,  El genio del diseño" data-description="Nilo es el encargado de que todo lo que ves en Nor.AI sea visualmente atractivo, intuitivo y fácil de usar. Él diseña cada parte de la página web pensando en que la experiencia del usuario sea fluida y agradable. Desde los colores, las animaciones, los botones, hasta cómo se ve el chatbot en tu celular o computadora, todo pasa por sus manos creativas. Nilo no solo hace que todo luzca bien, sino que también asegura que cada diseño tenga sentido, sea accesible y se adapte a lo que el usuario realmente necesita. Si algo se ve bonito y funciona de maravilla… es gracias a Nilo.">
+          <img src="Img/7.png" alt="Proyecto 7" class="proyecto-img" />
+          <div class="hover-info">
+            <p>¡Hola! Soy Nilo, mira lo que soy capaz de crear.</p>
+            <button class="ver-mas-btn">Ver más</button>
+          </div>
+        </div>
+        <div class="proyecto-hover-item" data-title="Onix,  El cerebro técnico de Nor.AI" data-description="Onix es quien hace que todo funcione detrás del telón. Él se encarga de la parte lógica y técnica del chatbot, de las automatizaciones inteligentes, y de que la interacción con los usuarios sea rápida, precisa y útil. Gracias a Onix, Nor.AI puede entender lo que las personas escriben, responder con claridad, y hasta realizar tareas automatizadas de forma eficiente. Siempre está optimizando el sistema para que sea más rápido, más inteligente y más útil. Sin Onix, Nor.AI no tendría vida ni respuesta.">
+          <img src="Img/8.png" alt="Proyecto 8" class="proyecto-img" />
+          <div class="hover-info">
+            <p>Hey, soy Onix. ¡Mira cómo hago que todo funcione!</p>
+            <button class="ver-mas-btn">Ver más</button>
+          </div>
+        </div>
+        <div class="proyecto-hover-item" data-title="Rami,  El que siempre está cuando lo necesitas" data-description="Rami es el que nunca te deja solo. Él se encarga del soporte técnico, de resolver problemas y de dar asistencia cuando algo no anda bien. Pero va más allá de solo “arreglar cosas”: también cuida que todo funcione correctamente día tras día, y está siempre pendiente de mejorar la experiencia de los usuarios. Si necesitas ayuda, tienes una duda o algo no te carga como debería, Rami está ahí para escucharte y darte una solución rápida y clara. Es ese compañero confiable que mantiene a Nor.AI siempre en marcha.">
+          <img src="Img/9.png" alt="Proyecto 9" class="proyecto-img" />
+          <div class="hover-info">
+            <p>¡Soy Rami! Siempre listo para ayudarte, ven y conóceme.</p>
+            <button class="ver-mas-btn">Ver más</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal for full info -->
+    <div id="modal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <span class="close-btn">&times;</span>
+        <h2 id="modal-title"></h2>
+        <p id="modal-description"></p>
+      </div>
+    </div>
+  </section>
+
+  <script src="Js/script.js"></script>
+
+  <footer class="site-footer">
+    <div class="footer-container">
+      <div class="footer-left">
+        <a href="index.html" class="footer-logo">
+          <img src="Img/2.png" alt="Nor.AI Logo" />
+        </a>
+      </div>
+      <div class="footer-right">
+        <div class="footer-columns">
+          <div class="footer-column">
+            <h4>Personajes</h4>
+            <ul>
+              <li style="color: #4a90e2;">Nilo</li>
+              <li style="color: #4a90e2;">Onix</a></li>
+              <li style="color: #4a90e2;">Rami</a></li>
+            </ul>
+          </div>
+          <div class="footer-column">
+            <h4>Compañía</h4>
+            <ul>
+              <li style="color: #4a90e2;">Comentarios</li>
+              <li><a href="mailto:suportnor.ai@gmail.com">suportnor.ai@gmail.com</a></li>
+            </ul>
+          </div>
+          <div class="footer-column">
+            <h4>Recursos</h4>
+            <ul>
+              <li style="flex-wrap: wrap;"><a href="#acerca">Acerca de Nosotros</a></li>
+              <li><a href="#proyectos">Proyectos</a></li>
+              <li><a href="inicio.html">Planes y precios</a></li>
+            </ul>
+          </div>
+          <div class="footer-column">
+            <button class="Btn" onclick="window.open('https://www.instagram.com/nor.ai_official?igsh=cWUyeXdkbzhkOWQ1')">
+      <svg xmlns="http://www.w3.org/2000/svg" height="1.5em" viewBox="0 0 448 512" class="svgIcon"><path d="M224.1 141c-63.6 0-114.9 51.3-114.9 114.9s51.3 114.9 114.9 114.9S339 319.5 339 255.9 287.7 141 224.1 141zm0 189.6c-41.1 0-74.7-33.5-74.7-74.7s33.5-74.7 74.7-74.7 74.7 33.5 74.7 74.7-33.6 74.7-74.7 74.7zm146.4-194.3c0 14.9-12 26.8-26.8 26.8-14.9 0-26.8-12-26.8-26.8s12-26.8 26.8-26.8 26.8 12 26.8 26.8zm76.1 27.2c-1.7-35.9-9.9-67.7-36.2-93.9-26.2-26.2-58-34.4-93.9-36.2-37-2.1-147.9-2.1-184.9 0-35.8 1.7-67.6 9.9-93.9 36.1s-34.4 58-36.2 93.9c-2.1 37-2.1 147.9 0 184.9 1.7 35.9 9.9 67.7 36.2 93.9s58 34.4 93.9 36.2c37 2.1 147.9 2.1 184.9 0 35.9-1.7 67.7-9.9 93.9-36.2 26.2-26.2 34.4-58 36.2-93.9 2.1-37 2.1-147.8 0-184.8zM398.8 388c-7.8 19.6-22.9 34.7-42.6 42.6-29.5 11.7-99.5 9-132.1 9s-102.7 2.6-132.1-9c-19.6-7.8-34.7-22.9-42.6-42.6-11.7-29.5-9-99.5-9-132.1s-2.6-102.7 9-132.1c7.8-19.6 22.9-34.7 42.6-42.6 29.5-11.7 99.5-9 132.1-9s102.7-2.6 132.1 9c19.6 7.8 34.7 22.9 42.6 42.6 11.7 29.5 9 99.5 9 132.1s2.7 102.7-9 132.1z"></path></svg>
+      <span class="text">Instagram</span>
+    </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© <span id="current-year"></span> Nor.AI. Todos los derechos reservados.</p>
+    </div>
+  </footer>
+  <script>
+    // Set current year in footer copyright
+    document.getElementById('current-year').textContent = new Date().getFullYear();
+  </script>
+
+</body>
+</html>
